@@ -1,0 +1,17 @@
+{
+  "name": "glsl-canvas-preview",
+  "version": "0.2.13",
+  "author": "Luca Zampetti <lzampetti@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "yarn run start",
+    "start": "sirv --port 8080 --host --cors --single --dev"
+  },
+  "dependencies": {
+    "glsl-canvas-js": "0.2.6",
+    "stats.js": "0.17.0"
+  },
+  "devDependencies": {
+    "sirv-cli": "1.0.11"
+  }
+}
