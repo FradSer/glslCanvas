@@ -1,5 +1,5 @@
 // Frad LEE @ 2021 
-//w https://www.shadertoy.com/view/flfGW8
+// Base on https://www.shadertoy.com/view/flfGW8
 
 #ifdef GL_ES
 precision mediump float;
@@ -19,25 +19,20 @@ float noise(vec2 p) {
   vec2 f = fract(p);
   f = f*f*(3.0-2.0*f);
   float n = mix(mix(rand(i + vec2(0.0,0.0)), rand(i + vec2(1.0,0.0)), f.x),
-                mix(rand(i + vec2(0.0,1.0)), rand(i + vec2(1.0,1.0)), f.x), f.y);
+            mix(rand(i + vec2(0.0,1.0)), rand(i + vec2(1.0,1.0)), f.x), f.y);
   return n;
 }
 
 // zoom
 vec2 zoom(vec2 _st, float _zoom){
 	_st *= _zoom;
-
   return fract(_st);
 }
 
-
-vec3 gradient(float t) {
-  return vec3(0.6863, 0.4902, 0.0275);
-}
+// brightness
 float b(float x) {
   return clamp(x, 0.0, 1.0);
 }
-
 
 float lerp(float start, float end, float fraction) {
     return start + ((end - start) * fraction);
@@ -46,10 +41,9 @@ float lerp(float start, float end, float fraction) {
 void main(){
   float n = 100.0;
 
-  // fixed size
+  vec2 uv = gl_FragCoord.xy/u_resolution.xy; 
 
-  vec2 uv = gl_FragCoord.xy/u_resolution.xy; // abstract / color uv
-  vec2 uvg = (gl_FragCoord.xy - u_resolution) / max(u_resolution.x, u_resolution.y); // grid uv
+  vec2 uvg = (gl_FragCoord.xy - u_resolution) / max(u_resolution.x, u_resolution.y); // fixed uv
 
   float mouse = u_mouse.x/u_resolution.x*u_mouse.y/u_resolution.y; // mouse
 
@@ -69,7 +63,7 @@ void main(){
         lerp(beginColor.y, endColor.y, uv.x),
         lerp(beginColor.z, endColor.z, uv.x));
 
-  col = mix(col, gradient_col, b(uv.x / uv.y));
+  col = mix(col, gradient_col, 0.5);
 
   // https://github.com/genekogan/Processing-Shader-Examples/blob/master/TextureShaders/data/halftone.glsl
   // OR
@@ -90,18 +84,17 @@ void main(){
 
 	vec3 halftone_col = mix(gradient_col,vec3(1.0), m);
 
-  vec3 col4 = mix(vec3(0), vec3(1, 1, 1), 5.0*vec3(pow(1.0-noise(uv*4.0-vec2(u_time/2., u_time/2.0)),4.0)));
-  col4 = mix(col4, gradient(noise(uv*4.-vec2(0.0, u_time/20.0))),1.3); // make gradient color 
+  vec3 abstract_col = mix(vec3(0), vec3(1, 1, 1), 5.0*vec3(pow(1.0-noise(uv*4.0-vec2(u_time/2., u_time/2.0)),4.0)));
 
-  col4 = pow(col4, vec3(1.))*b(1.0); // make color more bright
+  abstract_col = mix(abstract_col, vec3(0.6863, 0.4902, 0.0275), 1.3); // make gradient color 
 
-  vec3 col5 = mix(gradient_col, col, 0.5);
+  abstract_col = pow(abstract_col, vec3(1./2.2))*b(1.0); // make color more bright
 
-  col5 = mix(col5, col4, 0.6);
+  vec3 final_col = mix(gradient_col, col, 0.5);
 
-  col5 = mix(col5, halftone_col, 0.1);
+  final_col = mix(final_col, abstract_col, 0.5);
 
-  // col5 = pow(col5, vec3(1./2.2))*b(0.93); // make color more bright
+  final_col = mix(final_col, halftone_col, 0.1);
 
-  gl_FragColor = vec4(col5,1.0); // final color
+  gl_FragColor = vec4(final_col,1.0); // final color
 }
