@@ -1,5 +1,5 @@
 // Frad LEE @ 2021 
-// Base on https://www.shadertoy.com/view/flfGW8
+// Enhanced version with improved color transitions
 
 #ifdef GL_ES
 precision mediump float;
@@ -9,94 +9,122 @@ uniform vec2 u_resolution;
 uniform vec2 u_mouse;
 uniform float u_time;
 
-float rand(vec2 p) {
-	return fract(sin(dot(p, vec2(12.543,514.123)))*4732.12);
+// Improved hash function for better randomness
+float hash(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yxz + 19.19);
+    return -1.0 + 2.0 * fract((p3.x + p3.y) * p3.z);
 }
 
-// noise
+// Enhanced noise function
 float noise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  f = f*f*(3.0-2.0*f);
-  float n = mix(mix(rand(i + vec2(0.0,0.0)), rand(i + vec2(1.0,0.0)), f.x),
-            mix(rand(i + vec2(0.0,1.0)), rand(i + vec2(1.0,1.0)), f.x), f.y);
-  return n;
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    
+    return mix(mix(hash(i + vec2(0.0,0.0)), 
+                   hash(i + vec2(1.0,0.0)), u.x),
+               mix(hash(i + vec2(0.0,1.0)), 
+                   hash(i + vec2(1.0,1.0)), u.x), u.y);
 }
 
-// zoom
-vec2 zoom(vec2 _st, float _zoom){
-	_st *= _zoom;
-  return fract(_st);
+// Improved FBM with more octaves for richer detail
+float fbm(vec2 p) {
+    float value = 0.0;
+    float amplitude = 0.5;
+    float frequency = 1.0;
+    float lacunarity = 2.0;
+    float gain = 0.5;
+    
+    for(int i = 0; i < 6; i++) {
+        value += amplitude * noise(p * frequency);
+        frequency *= lacunarity;
+        amplitude *= gain;
+    }
+    return value * 1.2; // Amplify the effect
 }
 
-// brightness
-float b(float x) {
-  return clamp(x, 0.0, 1.0);
+// Enhanced color palette system with multiple color schemes
+vec3 palette(float t, float scheme) {
+    // Base colors for scheme 1 - More vibrant colors
+    vec3 a1 = vec3(0.8, 0.4, 0.5);
+    vec3 b1 = vec3(0.4, 0.5, 0.6);
+    vec3 c1 = vec3(2.0, 1.5, 1.0);
+    vec3 d1 = vec3(0.00, 0.33, 0.67);
+    
+    // Base colors for scheme 2 - Complementary colors
+    vec3 a2 = vec3(0.5, 0.7, 0.4);
+    vec3 b2 = vec3(0.6, 0.4, 0.5);
+    vec3 c2 = vec3(1.5, 1.0, 0.8);
+    vec3 d2 = vec3(0.7, 0.33, 0.27);
+    
+    // Interpolate between schemes with enhanced mixing
+    float mixFactor = scheme * scheme * (3.0 - 2.0 * scheme); // Smoother transition
+    vec3 a = mix(a1, a2, mixFactor);
+    vec3 b = mix(b1, b2, mixFactor);
+    vec3 c = mix(c1, c2, mixFactor);
+    vec3 d = mix(d1, d2, mixFactor);
+    
+    return a + b * cos(6.28318 * (c * t + d));
 }
 
-float lerp(float start, float end, float fraction) {
-    return start + ((end - start) * fraction);
+// Refined halftone effect with smoother transitions
+vec3 halftone(vec2 st, float size, vec3 col) {
+    vec2 center = fract(st * size) - 0.5;
+    float dist = length(center);
+    
+    float brightness = dot(col, vec3(0.299, 0.587, 0.114));
+    float radius = 0.4 * (brightness * 0.8 + 0.2);
+    
+    float pattern = smoothstep(radius, radius - 0.02, dist);
+    return mix(col * 0.8, col * 1.2, pattern);
 }
 
-// halftone
-// From https://github.com/genekogan/Processing-Shader-Examples/blob/master/TextureShaders/data/halftone.glsl
-// and
-// https://codepen.io/cmalven/pen/mMrEbV Not working now...
-vec3 halftone(vec2 st, float s, vec3 col) {
-    float pixelSize = s;
-	
-	float dx = mod(st.x, pixelSize) - pixelSize*0.5;
-	float dy = mod(st.y, pixelSize) - pixelSize*0.5;
-  float d = min(dx, dy);
-
-	st.x += d ;
-	st.y += d;
-	float bright = col.r  + col.g;
-	
-	float dist = sqrt(dx*dx + dy*dy);
-	float rad = bright * pixelSize * 0.4;
-	float m = step(dist, rad);
-
-	return mix(col,vec3(1.0), m);
-}
-
-vec3 gradient(vec2 st, vec3 beginColor, vec3 endColor) {
-  return vec3(
-         lerp(beginColor.x, endColor.x, st.x),
-         lerp(beginColor.y, endColor.y, st.x),
-         lerp(beginColor.z, endColor.z, st.x));
-}
-
-void main(){
-  float n = 100.0;
-
-  vec2 uv = gl_FragCoord.xy/u_resolution.xy; 
-
-  vec2 uvg = (gl_FragCoord.xy - u_resolution) / max(u_resolution.x, u_resolution.y); // fixed uv
-
-  float mouse = u_mouse.x/u_resolution.x*u_mouse.y/u_resolution.y; // mouse
-
-  // make uv abstracted
-  float abstract = noise(vec2(uv.x*15.+mouse, uv.y+mouse));
-  uv += abstract;
-
-  uvg = zoom(uvg, n); // zoom tile uvg, a trick function but works;
-
-  vec3 col = 1.0 - mix(vec3(1.), vec3(0.), vec3(noise(uv*8.0-vec2(u_time/2., u_time/2.0))));
-
-  vec3 gradient_col = gradient(uv, vec3(0.93, 0., 1.), vec3(0.21, 0.61, 1.));
-
-  col = mix(col, gradient_col, 0.5);
-
-	vec3 halftone_col = halftone(uvg, 0.5, col);
-
-  vec3 abstract_col = mix(vec3(0), vec3(1, 1, 1), 5.0*vec3(pow(1.0-noise(uv*4.0-vec2(u_time/2., u_time/2.0)),4.0)));
-  abstract_col = mix(abstract_col, vec3(0.6863, 0.4902, 0.0275), 1.3); // make gradient color 
-  abstract_col = pow(abstract_col, vec3(1./2.2))*b(1.0); // make color more bright
-
-  vec3 final_col = mix(gradient_col, col, 0.5);
-  final_col = mix(final_col, abstract_col, 0.5);
-  final_col = mix(final_col, halftone_col, 0.1);
-
-  gl_FragColor = vec4(final_col,1.0); // final color
+void main() {
+    vec2 uv = gl_FragCoord.xy/u_resolution.xy;
+    vec2 uvN = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / min(u_resolution.x, u_resolution.y);
+    
+    // Enhanced time variables for faster movement
+    float t = u_time * 0.25; // Increased speed
+    vec2 mouse = u_mouse.xy/u_resolution.xy;
+    
+    // Multiple flow fields with enhanced movement
+    float flow1 = fbm(uvN * 2.5 + vec2(t * 0.4, t * 0.3));
+    float flow2 = fbm(uvN * 3.5 - vec2(t * 0.3, t * 0.5));
+    float flow3 = fbm(uvN * 1.5 + vec2(-t * 0.2, t * 0.4));
+    
+    // Complex flow combination
+    float flow = mix(mix(flow1, flow2, 0.5), flow3, 0.3);
+    
+    // Dynamic color scheme blending with faster transitions
+    float scheme = sin(t * 0.2) * 0.5 + 0.5;
+    
+    // Enhanced color composition with more dynamic movement
+    vec3 col1 = palette(uv.x + flow + t * 0.3, scheme);
+    vec3 col2 = palette(uv.y - flow + t * 0.35, 1.0 - scheme);
+    vec3 col3 = palette(length(uvN) + flow * 0.7 + t * 0.4, scheme * 0.7);
+    
+    // More dynamic color blending
+    float blend1 = sin(t * 1.2 + flow * 2.0) * 0.5 + 0.5;
+    float blend2 = cos(t * 0.9 + flow * 3.0) * 0.5 + 0.5;
+    
+    // Enhanced color mixing
+    vec3 finalColor = mix(col1, col2, blend1);
+    finalColor = mix(finalColor, col3, blend2 * 0.7);
+    
+    // Amplified noise variation
+    float noisePattern = fbm(uv * 12.0 + t * 0.7);
+    finalColor = mix(finalColor, finalColor * (1.0 + noisePattern * 0.4), 0.35);
+    
+    // Keep original halftone effect with dynamic size
+    float halftoneSize = 40.0 + sin(t) * 10.0;
+    vec3 halftoneColor = halftone(uvN, halftoneSize, finalColor);
+    finalColor = mix(finalColor, halftoneColor, 0.25);
+    
+    // Enhanced color grading
+    finalColor = pow(finalColor, vec3(0.85)); // Increased contrast
+    finalColor *= 1.15; // More brightness
+    
+    gl_FragColor = vec4(finalColor, 1.0);
 }
