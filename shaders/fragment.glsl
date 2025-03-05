@@ -69,16 +69,28 @@ vec3 palette(float t, float scheme) {
     return a + b * cos(6.28318 * (c * t + d));
 }
 
-// Refined halftone effect with smoother transitions
+// Refined halftone effect with perfect circles and improved brightness mapping
 vec3 halftone(vec2 st, float size, vec3 col) {
-    vec2 center = fract(st * size) - 0.5;
+    // Adjust coordinates to maintain aspect ratio for perfect circles
+    vec2 aspect = vec2(u_resolution.x/u_resolution.y, 1.0);
+    vec2 st_adjusted = st * aspect;
+    
+    // Calculate center position for each circle
+    vec2 center = fract(st_adjusted * size) - 0.5;
+    center = center / aspect; // Correct the center position
     float dist = length(center);
     
+    // Enhanced brightness calculation using perceived luminance
     float brightness = dot(col, vec3(0.299, 0.587, 0.114));
-    float radius = 0.4 * (brightness * 0.8 + 0.2);
     
-    float pattern = smoothstep(radius, radius - 0.02, dist);
-    return mix(col * 0.8, col * 1.2, pattern);
+    // Improved radius calculation with more dramatic size variation
+    float radius = 0.35 * pow(brightness, 1.2); // More dramatic size difference based on brightness
+    
+    // Sharper circle edges with anti-aliasing
+    float pattern = smoothstep(radius, radius - 0.01, dist);
+    
+    // Enhanced contrast between dot and background
+    return mix(col * 0.7, col * 1.3, pattern);
 }
 
 void main() {
